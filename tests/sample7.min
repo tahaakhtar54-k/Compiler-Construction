@@ -1,0 +1,13 @@
+int x = 5;
+int y = 10;
+if (y > x) {
+    print("y is greater");
+} else {
+    print("x is greater");
+}
+func add(int a, int b) {
+    return a + b;
+}
+int r = 0;
+r = add(3,4);
+print(r);

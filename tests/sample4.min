@@ -1,0 +1,21 @@
+func int add(int a, int b) {
+    return a + b;
+}
+
+func bool is_even(int n) {
+    int rem = n % 2;
+    return rem == 0;
+}
+
+func int power(int base, int exp) {
+    int result = 1;
+    for (int i = 0; i < exp; i++) {
+        result *= base;
+    }
+    return result;
+}
+
+print(add(3, 4));        // 7
+print(is_even(8));       // true
+print(is_even(7));       // false
+print(power(2, 8));      // 256

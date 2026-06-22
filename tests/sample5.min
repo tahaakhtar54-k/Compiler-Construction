@@ -1,0 +1,13 @@
+bool a = true;
+bool b = !a;
+print(b);        // false
+
+int x = 5;
+bool big = x > 10;
+bool notbig = !big;
+print(notbig);   // true
+
+// short-circuit: second operand should not be evaluated if first is false
+int val = 0;
+bool res = false && val > 0;
+print(res);      // false

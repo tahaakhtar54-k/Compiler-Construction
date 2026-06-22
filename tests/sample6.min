@@ -1,0 +1,14 @@
+int sum = 0;
+int j = 0;
+for (j = 1; j <= 5; j = j + 1) {
+    sum = sum + j;
+}
+print("Sum 1 to 5:");
+print(sum);
+
+print("Countdown:");
+int k = 5;
+while (k >= 1) {
+    print(k);
+    k = k - 1;
+}
