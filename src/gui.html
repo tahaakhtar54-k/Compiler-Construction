@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Compiler Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  /* Dark theme (default) - Red & Black */
+  --bg:       #0a0a0a;
+  --surface:  #1a1a1a;
+  --panel:    #2a2a2a;
+  --border:   #404040;
+  --accent:   #dc2626;
+  --accent2:  #ef4444;
+  --accent3:  #f87171;
+  --accent4:  #fca5a5;
+  --danger:   #b91c1c;
+  --text:     #f5f5f5;
+  --muted:    #a3a3a3;
+  --mono:     'JetBrains Mono', monospace;
+  --display:  'Syne', sans-serif;
+}
+
+[data-theme="light"] {
+  /* Light theme */
+  --bg:       #f8fafc;
+  --surface:  #ffffff;
+  --panel:    #f1f5f9;
+  --border:   #e2e8f0;
+  --accent:   #6366f1;
+  --accent2:  #06b6d4;
+  --accent3:  #f59e0b;
+  --accent4:  #10b981;
+  --danger:   #ef4444;
+  --text:     #1e293b;
+  --muted:    #64748b;
+}
+
+/* Light theme token colors */
+[data-theme="light"] .tok-kw   { background: rgba(99,102,241,.1); border-color: rgba(99,102,241,.3); }
+[data-theme="light"] .tok-id   { background: rgba(6,182,212,.08); border-color: rgba(6,182,212,.25); }
+[data-theme="light"] .tok-lit  { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); }
+[data-theme="light"] .tok-op   { background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.25); }
+[data-theme="light"] .tok-punc { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.1); }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--display);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── HEADER ─────────────────────────────── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 58px;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logo {
+  display: flex; align-items: center; gap: 12px;
+  font-weight: 800; font-size: 18px; letter-spacing: -0.5px;
+}
+.logo-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.logo span { color: var(--accent); }
+.badge {
+  font-family: var(--mono);
+  font-size: 10px; font-weight: 600;
+  padding: 3px 10px; border-radius: 100px;
+  background: rgba(220,38,38,0.15);
+  color: var(--accent); border: 1px solid rgba(220,38,38,0.3);
+  letter-spacing: 0.05em;
+}
+
+/* ─── LAYOUT ─────────────────────────────── */
+.workspace {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  grid-template-rows: auto 1fr;
+  height: calc(100vh - 58px);
+}
+
+/* ─── LEFT PANEL — EDITOR ─────────────────── */
+.editor-panel {
+  grid-row: 1 / 3;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+.panel-head {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.panel-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.editor-wrap { flex: 1; position: relative; overflow: hidden; }
+textarea#code {
+  width: 100%; height: 100%;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px; line-height: 1.7;
+  border: none; outline: none; resize: none;
+  padding: 16px 20px;
+  tab-size: 4;
+}
+.editor-footer {
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 8px;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer;
+  font-family: var(--display); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.03em; transition: all .15s;
+}
+.btn-primary {
+  background: var(--accent); color: #fff;
+}
+.btn-primary:hover { background: #6b59e8; transform: translateY(-1px); }
+.btn-ghost {
+  background: var(--panel); color: var(--muted);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+.theme-toggle {
+  padding: 8px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--panel);
+}
+.theme-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ─── TABS ────────────────────────────────── */
+.tabs-row {
+  display: flex; align-items: center;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  gap: 2px; overflow-x: auto;
+}
+.tab {
+  display: flex; align-items: center; gap: 7px;
+  padding: 14px 18px; border: none; background: transparent;
+  color: var(--muted); font-family: var(--display);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all .15s; white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ─── VIZ AREA ────────────────────────────── */
+.viz-area {
+  overflow-y: auto; background: var(--bg); padding: 24px;
+}
+.viz-pane { display: none; }
+.viz-pane.active { display: block; }
+
+/* ─── TOKENS ──────────────────────────────── */
+.token-grid {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.token-chip {
+  display: inline-flex; flex-direction: column;
+  padding: 6px 12px; border-radius: 8px; border: 1px solid;
+  font-family: var(--mono); font-size: 11px; gap: 2px;
+}
+.token-chip .tok-type { font-weight: 700; font-size: 9px; letter-spacing: 0.1em; }
+.token-chip .tok-val  { font-size: 12px; }
+
+/* token color families */
+.tok-kw   { background: rgba(220,38,38,.1); border-color: rgba(220,38,38,.3); color: var(--accent); }
+.tok-kw .tok-type { color: var(--accent); }
+.tok-id   { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.25); color: var(--accent2); }
+.tok-id .tok-type { color: var(--accent2); }
+.tok-lit  { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.25); color: var(--accent3); }
+.tok-lit .tok-type { color: var(--accent3); }
+.tok-op   { background: rgba(252,165,165,.08); border-color: rgba(252,165,165,.25); color: var(--accent4); }
+.tok-op .tok-type { color: var(--accent4); }
+.tok-punc { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.1); color: var(--muted); }
+.tok-punc .tok-type { color: #666; }
+
+/* ─── AST TREE ────────────────────────────── */
+.ast-tree { font-family: var(--mono); font-size: 12px; }
+.ast-node {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  transition: background .12s; border: 1px solid transparent;
+  user-select: none;
+}
+.ast-node:hover { background: rgba(255,255,255,.05); }
+.ast-node.collapsed > .ast-children { display: none; }
+.ast-node-label {
+  font-weight: 700; font-size: 11px;
+}
+.ast-node-meta { color: var(--muted); font-size: 11px; }
+.ast-toggle { color: var(--muted); font-size: 10px; width: 12px; }
+.ast-children { padding-left: 22px; border-left: 1px solid var(--border); margin-left: 6px; }
+.ast-leaf { padding: 3px 10px; color: var(--muted); font-size: 11px; display: flex; gap: 8px; }
+.ast-leaf-key { color: #6b7280; }
+.ast-leaf-val { color: var(--accent3); }
+
+/* node type colors */
+.n-program  { color: var(--accent); }
+.n-funcdef  { color: #ef4444; }
+.n-vardecl  { color: var(--accent2); }
+.n-assign   { color: var(--accent4); }
+.n-if       { color: #f87171; }
+.n-for      { color: #fca5a5; }
+.n-while    { color: #b91c1c; }
+.n-return   { color: var(--accent3); }
+.n-print    { color: #7f1d1d; }
+.n-binop    { color: #dc2626; }
+.n-unary    { color: #ef4444; }
+.n-literal  { color: var(--accent3); }
+.n-ident    { color: var(--accent2); }
+.n-call     { color: #f87171; }
+.n-incdec   { color: var(--accent4); }
+.n-break    { color: var(--danger); }
+.n-continue { color: var(--danger); }
+.n-other    { color: var(--muted); }
+
+/* ─── SYMBOL TABLE ────────────────────────── */
+.sym-section { margin-bottom: 28px; }
+.sym-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+table.sym-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+table.sym-table th {
+  text-align: left; padding: 8px 14px;
+  color: var(--muted); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+}
+table.sym-table td {
+  padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.04);
+  vertical-align: middle;
+}
+table.sym-table tr:hover td { background: rgba(255,255,255,.02); }
+.type-badge {
+  display: inline-block; padding: 2px 9px; border-radius: 100px;
+  font-size: 10px; font-weight: 700;
+}
+.tb-int    { background: rgba(220,38,38,.15);  color: var(--accent); }
+.tb-float  { background: rgba(239,68,68,.15); color: var(--accent2); }
+.tb-string { background: rgba(248,113,113,.15); color: var(--accent3); }
+.tb-bool   { background: rgba(252,165,165,.15); color: var(--accent4); }
+.scope-tag { color: var(--muted); font-size: 10px; }
+.func-row td:first-child { color: var(--accent); font-weight: 700; }
+.param-list { color: var(--muted); font-size: 11px; }
+
+/* ─── IR VIEWER ───────────────────────────── */
+.ir-list { display: flex; flex-direction: column; gap: 2px; font-family: var(--mono); font-size: 12px; }
+.ir-instr {
+  display: flex; align-items: center; gap: 0;
+  border-radius: 6px; overflow: hidden;
+  border: 1px solid transparent; transition: border-color .12s;
+}
+.ir-instr:hover { border-color: var(--border); }
+.ir-ln {
+  min-width: 42px; text-align: right; padding: 5px 10px;
+  color: var(--muted); font-size: 10px; background: var(--panel);
+  border-right: 1px solid var(--border); flex-shrink: 0;
+}
+.ir-body { padding: 5px 14px; flex: 1; display: flex; align-items: center; gap: 10px; }
+.ir-op {
+  font-weight: 700; font-size: 11px; min-width: 100px;
+}
+.ir-args { color: var(--muted); }
+.ir-arg-name { color: var(--accent2); }
+.ir-arg-const { color: var(--accent3); }
+.ir-arg-label { color: var(--accent4); }
+.ir-arg-temp  { color: var(--muted); }
+
+/* opcode colors */
+.op-jump      { background: rgba(185,28,28,.06); }
+.op-jump .ir-op { color: var(--danger); }
+.op-label     { background: rgba(252,165,165,.04); }
+.op-label .ir-op { color: var(--accent4); }
+.op-call      { background: rgba(220,38,38,.06); }
+.op-call .ir-op { color: var(--accent); }
+.op-store     { background: rgba(239,68,68,.04); }
+.op-store .ir-op { color: var(--accent2); }
+.op-arith .ir-op { color: #f87171; }
+.op-cmp   .ir-op { color: #dc2626; }
+.op-io    .ir-op { color: #7f1d1d; }
+.op-ret   .ir-op { color: var(--accent3); }
+.op-const .ir-op { color: #a3a3a3; }
+
+/* ─── CFG ─────────────────────────────────── */
+#cfg-canvas {
+  width: 100%; min-height: 500px;
+  background: var(--panel);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+svg#cfg-svg { width: 100%; font-family: var(--mono); }
+
+/* ─── STATS BAR ───────────────────────────── */
+.stats-bar {
+  display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+}
+.stat-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 20px; flex: 1; min-width: 110px;
+}
+.stat-val { font-size: 28px; font-weight: 800; line-height: 1; }
+.stat-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+            text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
+/* ─── EMPTY STATE ─────────────────────────── */
+.empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 80px 20px; gap: 12px;
+  color: var(--muted); text-align: center;
+}
+.empty-icon { font-size: 40px; opacity: .4; }
+.empty-title { font-size: 14px; font-weight: 700; }
+.empty-sub { font-size: 12px; line-height: 1.6; max-width: 300px; }
+
+/* ─── SCROLLBAR ───────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Light theme scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+
+/* ─── ANIM ────────────────────────────────── */
+@keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+.viz-pane.active { animation: fadeIn .2s ease; }
+
+/* ─── PHASE PIPELINE ─────────────────────── */
+.pipeline { display: flex; gap: 0; margin-bottom: 24px; overflow-x: auto; }
+.phase-step {
+  display: flex; align-items: center;
+}
+.phase-box {
+  padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.05em; white-space: nowrap; cursor: pointer;
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  transition: all .15s;
+}
+.phase-box:hover { color: var(--text); border-color: var(--accent); }
+.phase-box.done { color: var(--text); }
+.phase-box.done.ph1 { border-color: rgba(220,38,38,.5); color: var(--accent); }
+.phase-box.done.ph2 { border-color: rgba(239,68,68,.5);  color: var(--accent2); }
+.phase-box.done.ph3 { border-color: rgba(248,113,113,.5); color: var(--accent3); }
+.phase-box.done.ph4 { border-color: rgba(252,165,165,.5); color: var(--accent4); }
+.phase-box.done.ph5 { border-color: rgba(185,28,28,.5); color: var(--danger); }
+.phase-box.done.ph6 { border-color: rgba(127,29,29,.5);  color: #7f1d1d; }
+.phase-arrow { color: var(--border); padding: 0 8px; font-size: 16px; }
+
+/* ─── IR DIFF ─────────────────────────────── */
+.ir-diff-bar {
+  display: flex; gap: 12px; margin-bottom: 16px; align-items: center;
+}
+.ir-diff-pill {
+  padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 700;
+}
+.removed { background: rgba(185,28,28,.15); color: var(--danger); }
+.kept    { background: rgba(252,165,165,.15); color: var(--accent4); }
+
+/* ─── OPTIMIZATION PASSES ─────────────────── */
+.opt-passes { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.opt-pass {
+  padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+}
+.opt-pass.active { border-color: var(--accent4); color: var(--accent4); background: rgba(252,165,165,.08); }
+</style>
+</head>
+<body>
+
+<!-- Hidden file input for loading code files -->
+<input type="file" id="file-input" accept=".txt,.c,.cpp,.py,.js,.ts,.java,.go,.rs,.cs,.swift,.kt,.rb,.php,.html,.css,.json,.xml,.yaml,.yml,.sh,.md,.pseudo,.lang" style="display:none" onchange="loadFile(event)"/>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    Compiler<span>Visualizer</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-ghost theme-toggle" onclick="document.getElementById('file-input').click()" title="Load a code file" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;font-size:12px;font-weight:700;letter-spacing:0.03em;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;flex-shrink:0"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><polyline points="7 9 12 4 17 9"/><line x1="12" y1="4" x2="12" y2="16"/></svg>
+      Load File
+    </button>
+    <button class="btn btn-ghost theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="5"/>
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="workspace">
+  <!-- LEFT: Editor -->
+  <div class="editor-panel">
+    <div class="panel-head">
+      <span class="panel-title">Source Code</span>
+      <span id="cursor-pos" style="font-family:var(--mono);font-size:10px;color:var(--muted);">Ln 1, Col 1</span>
+    </div>
+    <div class="editor-wrap">
+      <textarea id="code" spellcheck="false">// Compiler Visualizer 
+
+// Edit code below and click Compile
+
+func int factorial(int n) {
+    int result = 1;
+    for (int i = 1; i <= n; i++) {
+        result *= i;
+    }
+    return result;
+}
+
+func bool is_prime(int n) {
+    if (n < 2) { return false; }
+    int i = 2;
+    while (i <= n / 2) {
+        int rem = n % i;
+        if (rem == 0) { return false; }
+        i++;
+    }
+    return true;
+}
+
+int x = 6;
+int f = factorial(x);
+print(f);
+
+if (x < 0) {
+    print("negative");
+} elif (x == 0) {
+    print("zero");
+} elif (x < 10) {
+    print("small positive");
+} else {
+    print("large positive");
+}
+
+bool flag = true;
+bool inv = !flag;
+print(inv);
+
+print(is_prime(7));
+print(is_prime(9));</textarea>
+    </div>
+    <div class="editor-footer">
+      <button class="btn btn-primary" onclick="compile()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Compile
+      </button>
+      <button class="btn btn-ghost" onclick="loadSample('simple')">Simple</button>
+      <button class="btn btn-ghost" onclick="loadSample('loops')">Loops</button>
+      <button class="btn btn-ghost" onclick="loadSample('funcs')">Functions</button>
+    </div>
+  </div>
+
+  <!-- TOP: Tabs -->
+  <div style="display:flex;flex-direction:column;overflow:hidden;">
+    <div class="tabs-row">
+      <button class="tab active" onclick="switchTab('tokens')" id="tab-tokens">
+        <span class="tab-dot" style="background:#dc2626"></span>Tokens
+      </button>
+      <button class="tab" onclick="switchTab('ast')" id="tab-ast">
+        <span class="tab-dot" style="background:#ef4444"></span>AST
+      </button>
+      <button class="tab" onclick="switchTab('symtable')" id="tab-symtable">
+        <span class="tab-dot" style="background:#f87171"></span>Symbol Table
+      </button>
+      <button class="tab" onclick="switchTab('ir')" id="tab-ir">
+        <span class="tab-dot" style="background:#fca5a5"></span>IR
+      </button>
+      <button class="tab" onclick="switchTab('cfg')" id="tab-cfg">
+        <span class="tab-dot" style="background:#b91c1c"></span>CFG
+      </button>
+      <button class="tab" onclick="switchTab('output')" id="tab-output">
+        <span class="tab-dot" style="background:#7f1d1d"></span>Output
+      </button>
+    </div>
+
+    <!-- VIZ AREA -->
+    <div class="viz-area" id="viz-area">
+
+      <!-- TOKENS -->
+      <div class="viz-pane active" id="pane-tokens">
+        <div class="empty">
+          <div class="empty-icon">🔤</div>
+          <div class="empty-title">No tokens yet</div>
+          <div class="empty-sub">Click Compile to tokenize your source code</div>
+        </div>
+      </div>
+
+      <!-- AST -->
+      <div class="viz-pane" id="pane-ast">
+        <div class="empty">
+          <div class="empty-icon">🌲</div>
+          <div class="empty-title">No AST yet</div>
+          <div class="empty-sub">Compile your code to see the Abstract Syntax Tree</div>
+        </div>
+      </div>
+
+      <!-- SYMBOL TABLE -->
+      <div class="viz-pane" id="pane-symtable">
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">No symbol table yet</div>
+          <div class="empty-sub">Compile to run semantic analysis</div>
+        </div>
+      </div>
+
+      <!-- IR -->
+      <div class="viz-pane" id="pane-ir">
+        <div class="empty">
+          <div class="empty-icon">⚙️</div>
+          <div class="empty-title">No IR yet</div>
+          <div class="empty-sub">Compile to generate and optimize IR</div>
+        </div>
+      </div>
+
+      <!-- CFG -->
+      <div class="viz-pane" id="pane-cfg">
+        <div class="empty">
+          <div class="empty-icon">🗺️</div>
+          <div class="empty-title">No CFG yet</div>
+          <div class="empty-sub">Compile to build the Control Flow Graph</div>
+        </div>
+      </div>
+
+      <!-- OUTPUT -->
+      <div class="viz-pane" id="pane-output">
+        <div class="empty">
+          <div class="empty-icon">▶️</div>
+          <div class="empty-title">No output yet</div>
+          <div class="empty-sub">Compile to run the VM and see output</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────────────────────────
+// SAMPLES
+// ──────────────────────────────────────────────────────────────────────────
+const SAMPLES = {
+  simple: `// Simple variable and if/elif/else
+int x = 42;
+int y = 10;
+int z = x + y;
+print(z);
+
+if (z > 100) {
+    print("big");
+} elif (z > 50) {
+    print("medium");
+} else {
+    print("small");
+}
+
+bool flag = true;
+bool inv = !flag;
+print(inv);`,
+
+  loops: `// Break, continue, for and while loops
+int sum = 0;
+for (int i = 1; i <= 10; i++) {
+    if (i % 2 == 0) { continue; }
+    sum += i;
+}
+print(sum);
+
+int count = 0;
+while (true) {
+    count++;
+    if (count == 5) { break; }
+}
+print(count);`,
+
+  funcs: `func int add(int a, int b) {
+    return a + b;
+}
+
+func int power(int base, int exp) {
+    int result = 1;
+    for (int i = 0; i < exp; i++) {
+        result *= base;
+    }
+    return result;
+}
+
+func bool is_even(int n) {
+    int rem = n % 2;
+    return rem == 0;
+}
+
+print(add(10, 32));
+print(power(2, 8));
+print(is_even(6));
+print(is_even(7));`
+};
+
+function loadSample(name) {
+  document.getElementById('code').value = SAMPLES[name];
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// TAB SWITCHING
+// ──────────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.viz-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('pane-' + name).classList.add('active');
+}
+
+// cursor pos
+document.getElementById('code').addEventListener('keyup', updateCursor);
+document.getElementById('code').addEventListener('click', updateCursor);
+function updateCursor() {
+  const ta = document.getElementById('code');
+  const txt = ta.value.substring(0, ta.selectionStart);
+  const lines = txt.split('\n');
+  document.getElementById('cursor-pos').textContent = `Ln ${lines.length}, Col ${lines[lines.length-1].length+1}`;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// LEXER
+// ──────────────────────────────────────────────────────────────────────────
+const KEYWORDS = new Set([
+  'if','else','elif','while','for','print','input','func','return',
+  'true','false','int','float','string','bool','break','continue'
+]);
+const PUNCTS = new Set([';','(',')','[',']','{','}',',']);
+const OPS = new Set(['==','!=','<=','>=','&&','||','!','++','--','+','-','*','/','%','<','>','=','+=','-=','*=','/=']);
+
+function tokenize(code) {
+  const tokens = [];
+  let i = 0, line = 1, col = 1;
+
+  const peek = (off=0) => code[i+off] || '';
+  const two  = () => code.slice(i, i+2);
+
+  while (i < code.length) {
+    const ch = peek();
+
+    // newline
+    if (ch === '\n') { i++; line++; col=1; continue; }
+    // whitespace
+    if (/[ \t\r]/.test(ch)) { i++; col++; continue; }
+
+    // single-line comment
+    if (two() === '//') {
+      while (i < code.length && peek() !== '\n') i++;
+      continue;
+    }
+    // multi-line comment
+    if (two() === '/*') {
+      i += 2; col += 2;
+      while (i < code.length && !(peek() === '*' && peek(1) === '/')) {
+        if (peek() === '\n') { line++; col=1; } else col++;
+        i++;
+      }
+      i += 2; col += 2;
+      continue;
+    }
+
+    // string
+    if (ch === '"') {
+      let s = '"'; i++; col++;
+      while (i < code.length && peek() !== '"') {
+        if (peek() === '\\') { s += peek(); i++; col++; }
+        s += peek(); i++; col++;
+      }
+      s += '"'; i++; col++;
+      tokens.push({ type:'STRING', value: s, line, col });
+      continue;
+    }
+
+    // number
+    if (/\d/.test(ch)) {
+      let n = '';
+      while (/\d/.test(peek())) { n += peek(); i++; col++; }
+      if (peek() === '.' && /\d/.test(peek(1))) {
+        n += '.'; i++; col++;
+        while (/\d/.test(peek())) { n += peek(); i++; col++; }
+        tokens.push({ type:'FLOAT', value:n, line, col }); continue;
+      }
+      tokens.push({ type:'INT', value:n, line, col }); continue;
+    }
+
+    // identifier / keyword
+    if (/[A-Za-z_]/.test(ch)) {
+      let id = '';
+      while (/\w/.test(peek())) { id += peek(); i++; col++; }
+      const t = KEYWORDS.has(id) ? id.toUpperCase() : 'ID';
+      tokens.push({ type:t, value:id, line, col }); continue;
+    }
+
+    // two-char ops
+    const tw = two();
+    if (OPS.has(tw)) {
+      tokens.push({ type:'OP', value:tw, line, col });
+      i+=2; col+=2; continue;
+    }
+    // single-char op or punct
+    if (OPS.has(ch)) {
+      tokens.push({ type:'OP', value:ch, line, col });
+      i++; col++; continue;
+    }
+    if (PUNCTS.has(ch)) {
+      const names = {';':'SEMI','(':'LPAREN',')':'RPAREN','{':'LBRACE','}':'RBRACE','[':'LBRACKET',']':'RBRACKET',',':'COMMA'};
+      tokens.push({ type: names[ch]||'PUNC', value:ch, line, col });
+      i++; col++; continue;
+    }
+
+    tokens.push({ type:'UNKNOWN', value:ch, line, col });
+    i++; col++;
+  }
+  tokens.push({ type:'EOF', value:'', line, col });
+  return tokens;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// PARSER (produces AST objects)
+// ──────────────────────────────────────────────────────────────────────────
+class ParseError extends Error {}
+
+class Parser {
+  constructor(tokens) {
+    this.tokens = tokens;
+    this.pos = 0;
+  }
+  peek(off=0) { return this.tokens[Math.min(this.pos+off, this.tokens.length-1)]; }
+  consume(expected) {
+    const t = this.peek();
+    if (expected && t.type !== expected)
+      throw new ParseError(`Expected ${expected} got ${t.type} ("${t.value}") at line ${t.line}`);
+    this.pos++;
+    return t;
+  }
+  match(...types) {
+    if (types.includes(this.peek().type)) return this.consume();
+    return null;
+  }
+  parse() {
+    const stmts = [];
+    while (this.peek().type !== 'EOF') stmts.push(this.statement());
+    return { kind:'Program', statements: stmts };
+  }
+  TYPE_TOKENS = ['INT','FLOAT','STRING','BOOL'];
+  statement() {
+    const t = this.peek();
+    if (this.TYPE_TOKENS.includes(t.type)) return this.varDecl();
+    if (t.type === 'ID') {
+      const n = this.peek(1).type;
+      if (n === 'LPAREN') return this.funcCallStmt();
+      if (n === 'INC' || n === 'DEC' || (t.value && (this.peek(1).value==='++'||this.peek(1).value==='--'))) {
+        // check if next op is ++ or --
+        if (this.peek(1).value === '++' || this.peek(1).value === '--') return this.incDecStmt();
+      }
+      return this.assignment();
+    }
+    if (t.type === 'PRINT')    return this.printStmt();
+    if (t.type === 'INPUT')    return this.inputStmt();
+    if (t.type === 'IF')       return this.ifStmt();
+    if (t.type === 'WHILE')    return this.whileStmt();
+    if (t.type === 'FOR')      return this.forStmt();
+    if (t.type === 'FUNC')     return this.funcDef();
+    if (t.type === 'RETURN')   return this.returnStmt();
+    if (t.type === 'BREAK')    { this.consume(); this.consume('SEMI'); return { kind:'Break' }; }
+    if (t.type === 'CONTINUE') { this.consume(); this.consume('SEMI'); return { kind:'Continue' }; }
+    throw new ParseError(`Unexpected token ${t.type} at line ${t.line}`);
+  }
+  block() {
+    const nodes = [];
+    this.consume('LBRACE');
+    while (this.peek().type !== 'RBRACE' && this.peek().type !== 'EOF') nodes.push(this.statement());
+    this.consume('RBRACE');
+    return nodes;
+  }
+  varDecl() {
+    const typ = this.consume().type.toLowerCase();
+    const name = this.consume('ID').value;
+    let expr = null;
+    if (this.peek().value === '=') { this.consume(); expr = this.expression(); }
+    this.consume('SEMI');
+    return { kind:'VarDecl', type:typ, name, expr };
+  }
+  assignment() {
+    const name = this.consume('ID').value;
+    const op = this.consume('OP').value;
+    const expr = this.expression();
+    this.consume('SEMI');
+    return { kind:'Assignment', name, op, expr };
+  }
+  incDecStmt() {
+    const name = this.consume('ID').value;
+    const op = this.consume('OP').value;
+    this.consume('SEMI');
+    return { kind:'IncDec', name, op };
+  }
+  printStmt() {
+    this.consume('PRINT'); this.consume('LPAREN');
+    const expr = this.expression();
+    this.consume('RPAREN'); this.consume('SEMI');
+    return { kind:'Print', expr };
+  }
+  inputStmt() {
+    this.consume('INPUT'); this.consume('LPAREN');
+    const name = this.consume('ID').value;
+    this.consume('RPAREN'); this.consume('SEMI');
+    return { kind:'Input', name };
+  }
+  ifStmt() {
+    this.consume('IF'); this.consume('LPAREN');
+    const cond = this.expression(); this.consume('RPAREN');
+    const thenBlock = this.block();
+    const branches = [{ cond, block: thenBlock }];
+    while (this.peek().type === 'ELIF') {
+      this.consume('ELIF'); this.consume('LPAREN');
+      const ec = this.expression(); this.consume('RPAREN');
+      branches.push({ cond: ec, block: this.block() });
+    }
+    if (this.peek().type === 'ELSE') {
+      this.consume('ELSE');
+      branches.push({ cond: null, block: this.block() });
+    }
+    return { kind:'If', branches };
+  }
+  whileStmt() {
+    this.consume('WHILE'); this.consume('LPAREN');
+    const cond = this.expression(); this.consume('RPAREN');
+    const body = this.block();
+    return { kind:'While', cond, body };
+  }
+  forStmt() {
+    this.consume('FOR'); this.consume('LPAREN');
+    let init = null;
+    if (this.peek().type !== 'SEMI') {
+      if (this.TYPE_TOKENS.includes(this.peek().type)) {
+        const typ = this.consume().type.toLowerCase();
+        const name = this.consume('ID').value;
+        let expr = null;
+        if (this.peek().value === '=') { this.consume(); expr = this.expression(); }
+        this.consume('SEMI');
+        init = { kind:'VarDecl', type:typ, name, expr };
+      } else { init = this.assignment(); }
+    } else { this.consume('SEMI'); }
+    let cond = null;
+    if (this.peek().type !== 'SEMI') cond = this.expression();
+    this.consume('SEMI');
+    let post = null;
+    if (this.peek().type !== 'RPAREN') {
+      if (this.peek().type === 'ID' && (this.peek(1).value==='++'||this.peek(1).value==='--')) {
+        const name = this.consume('ID').value;
+        const op = this.consume('OP').value;
+        post = { kind:'IncDec', name, op };
+      } else {
+        const name = this.consume('ID').value;
+        const op = this.consume('OP').value;
+        const expr = this.expression();
+        post = { kind:'Assignment', name, op, expr };
+      }
+    }
+    this.consume('RPAREN');
+    const body = this.block();
+    return { kind:'For', init, cond, post, body };
+  }
+  funcDef() {
+    this.consume('FUNC');
+    let retType = null;
+    if (this.TYPE_TOKENS.includes(this.peek().type)) retType = this.consume().type.toLowerCase();
+    const name = this.consume('ID').value;
+    this.consume('LPAREN');
+    const params = [];
+    if (this.peek().type !== 'RPAREN') {
+      while (true) {
+        const pt = this.consume().type.toLowerCase();
+        const pn = this.consume('ID').value;
+        params.push([pt, pn]);
+        if (this.peek().type === 'COMMA') this.consume('COMMA'); else break;
+      }
+    }
+    this.consume('RPAREN');
+    const body = this.block();
+    return { kind:'FuncDef', name, params, body, retType };
+  }
+  returnStmt() {
+    this.consume('RETURN');
+    let expr = null;
+    if (this.peek().type !== 'SEMI') expr = this.expression();
+    this.consume('SEMI');
+    return { kind:'Return', expr };
+  }
+  funcCallStmt() { const c = this.funcCall(); this.consume('SEMI'); return c; }
+  funcCall() {
+    const name = this.consume('ID').value;
+    this.consume('LPAREN');
+    const args = [];
+    if (this.peek().type !== 'RPAREN') {
+      while (true) { args.push(this.expression()); if (this.peek().type === 'COMMA') this.consume('COMMA'); else break; }
+    }
+    this.consume('RPAREN');
+    return { kind:'FuncCall', name, args };
+  }
+  expression() { return this.logicOr(); }
+  logicOr() {
+    let n = this.logicAnd();
+    while (this.peek().value === '||') { const op = this.consume('OP').value; n = { kind:'BinOp', left:n, op, right:this.logicAnd() }; }
+    return n;
+  }
+  logicAnd() {
+    let n = this.equality();
+    while (this.peek().value === '&&') { const op = this.consume('OP').value; n = { kind:'BinOp', left:n, op, right:this.equality() }; }
+    return n;
+  }
+  equality() {
+    let n = this.relational();
+    while (['==','!='].includes(this.peek().value)) { const op = this.consume('OP').value; n = { kind:'BinOp', left:n, op, right:this.relational() }; }
+    return n;
+  }
+  relational() {
+    let n = this.term();
+    while (['<','>','<=','>='].includes(this.peek().value)) { const op = this.consume('OP').value; n = { kind:'BinOp', left:n, op, right:this.term() }; }
+    return n;
+  }
+  term() {
+    let n = this.factor();
+    while (['+','-'].includes(this.peek().value)) { const op = this.consume('OP').value; n = { kind:'BinOp', left:n, op, right:this.factor() }; }
+    return n;
+  }
+  factor() {
+    let n = this.unary();
+    while (['*','/','%'].includes(this.peek().value)) { const op = this.consume('OP').value; n = { kind:'BinOp', left:n, op, right:this.unary() }; }
+    return n;
+  }
+  unary() {
+    if (this.peek().value === '-') { this.consume(); return { kind:'UnaryOp', op:'-', operand:this.unary() }; }
+    if (this.peek().value === '!' || this.peek().type === 'NOT') { this.consume(); return { kind:'UnaryOp', op:'!', operand:this.unary() }; }
+    return this.primary();
+  }
+  primary() {
+    const t = this.peek();
+    if (t.type==='INT')    return { kind:'Literal', value:parseInt(t.value),   dtype:'int',    _t:this.consume() };
+    if (t.type==='FLOAT')  return { kind:'Literal', value:parseFloat(t.value), dtype:'float',  _t:this.consume() };
+    if (t.type==='STRING') return { kind:'Literal', value:t.value,             dtype:'string', _t:this.consume() };
+    if (t.type==='TRUE')   { this.consume(); return { kind:'Literal', value:true,  dtype:'bool' }; }
+    if (t.type==='FALSE')  { this.consume(); return { kind:'Literal', value:false, dtype:'bool' }; }
+    if (t.type==='ID') {
+      if (this.peek(1).type==='LPAREN') return this.funcCall();
+      return { kind:'Identifier', name:this.consume('ID').value };
+    }
+    if (t.type==='LPAREN') {
+      this.consume('LPAREN'); const e = this.expression(); this.consume('RPAREN'); return e;
+    }
+    throw new ParseError(`Unexpected ${t.type} ("${t.value}") at line ${t.line}`);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// SEMANTIC ANALYSIS (extract symbol table info)
+// ──────────────────────────────────────────────────────────────────────────
+function buildSymbolTable(ast) {
+  const globals = {};
+  const functions = {};
+  const scopes = [globals];
+
+  function define(name, type) { scopes[scopes.length-1][name] = type; }
+  function lookup(name) {
+    for (let i = scopes.length-1; i >= 0; i--)
+      if (scopes[i][name]) return scopes[i][name];
+    return null;
+  }
+
+  function inferRetType(body) {
+    for (const s of body) {
+      if (s.kind === 'Return' && s.expr) {
+        return evalType(s.expr) || 'int';
+      }
+    }
+    return null;
+  }
+
+  function evalType(expr) {
+    if (!expr) return null;
+    if (expr.kind === 'Literal') return expr.dtype;
+    if (expr.kind === 'Identifier') return lookup(expr.name) || 'int';
+    if (expr.kind === 'BinOp') {
+      const lt = evalType(expr.left), rt = evalType(expr.right);
+      if (['==','!=','<','>','<=','>=','&&','||'].includes(expr.op)) return 'bool';
+      if (lt==='float'||rt==='float') return 'float';
+      return 'int';
+    }
+    if (expr.kind === 'UnaryOp') {
+      if (expr.op === '!') return 'bool';
+      return evalType(expr.operand);
+    }
+    if (expr.kind === 'FuncCall') return functions[expr.name]?.retType || 'int';
+    return 'int';
+  }
+
+  // first pass: register functions
+  for (const s of ast.statements) {
+    if (s.kind === 'FuncDef') {
+      const retType = s.retType || inferRetType(s.body);
+      functions[s.name] = { params: s.params, retType, locals: {} };
+    }
+  }
+
+  function analyzeBlock(stmts, localScope) {
+    scopes.push(localScope);
+    for (const s of stmts) analyzeStmt(s);
+    scopes.pop();
+  }
+
+  function analyzeStmt(s) {
+    if (s.kind === 'VarDecl') define(s.name, s.type);
+    else if (s.kind === 'FuncDef') {
+      const fn = functions[s.name];
+      const localScope = fn.locals;
+      for (const [pt, pn] of s.params) localScope[pn] = pt;
+      analyzeBlock(s.body, localScope);
+    }
+    else if (s.kind === 'If') {
+      for (const br of s.branches) analyzeBlock(br.block, {});
+    }
+    else if (s.kind === 'While') analyzeBlock(s.body, {});
+    else if (s.kind === 'For') {
+      const sc = {};
+      if (s.init?.kind === 'VarDecl') sc[s.init.name] = s.init.type;
+      analyzeBlock(s.body, sc);
+    }
+  }
+
+  for (const s of ast.statements) analyzeStmt(s);
+  return { globals, functions };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// IR GENERATION
+// ──────────────────────────────────────────────────────────────────────────
+class IRGen {
+  constructor() {
+    this.code = [];
+    this.tc = 0;
+    this.lc = 0;
+    this.breakStack = [];
+    this.contStack = [];
+  }
+  temp() { return `t${++this.tc}`; }
+  lbl(base='L') { return `${base}${++this.lc}`; }
+  emit(op, ...args) { this.code.push({ op, args }); }
+
+  gen(node) {
+    if (!node) return null;
+    switch (node.kind) {
+      case 'Program': {
+        const hasFuncs = node.statements.some(s => s.kind==='FuncDef');
+        let mainLbl = null;
+        if (hasFuncs) { mainLbl = this.lbl('MAIN'); this.emit('JUMP', mainLbl); }
+        for (const s of node.statements) if (s.kind==='FuncDef') this.gen(s);
+        if (mainLbl) this.emit('LABEL', mainLbl);
+        for (const s of node.statements) if (s.kind!=='FuncDef') this.gen(s);
+        break;
+      }
+      case 'FuncDef':
+        this.emit('LABEL', `func_${node.name}`);
+        node.params.forEach(([,pn], i) => this.emit('STORE', pn, `arg${i}`));
+        for (const s of node.body) this.gen(s);
+        this.emit('RET');
+        break;
+      case 'VarDecl':
+        if (node.expr) { const s = this.gen(node.expr); this.emit('STORE', node.name, s); }
+        else this.emit('ALLOC', node.name);
+        break;
+      case 'Assignment': {
+        const rhs = this.gen(node.expr);
+        if (node.op === '=') { this.emit('STORE', node.name, rhs); }
+        else {
+          const m={'+=':'ADD','-=':'SUB','*=':'MUL','/=':'DIV'};
+          const t = this.temp(); this.emit(m[node.op], t, node.name, rhs); this.emit('STORE', node.name, t);
+        }
+        break;
+      }
+      case 'IncDec': {
+        const one = this.temp(); const t = this.temp();
+        this.emit('LOAD_CONST', one, 1);
+        this.emit(node.op==='++'?'ADD':'SUB', t, node.name, one);
+        this.emit('STORE', node.name, t);
+        break;
+      }
+      case 'Print': { const s = this.gen(node.expr); this.emit('PRINT', s); break; }
+      case 'Input': { this.emit('INPUT', node.name); break; }
+      case 'Return':
+        if (node.expr) { const v = this.gen(node.expr); this.emit('RETVAL', v); }
+        this.emit('RET'); break;
+      case 'Break': this.emit('JUMP', this.breakStack[this.breakStack.length-1]); break;
+      case 'Continue': this.emit('JUMP', this.contStack[this.contStack.length-1]); break;
+      case 'If': {
+        const endLbl = this.lbl('ENDIF');
+        for (let i=0; i<node.branches.length; i++) {
+          const {cond, block} = node.branches[i];
+          if (!cond) { for (const s of block) this.gen(s); break; }
+          const nxt = this.lbl(i+1<node.branches.length?'ELIF':'ELSE');
+          const ct = this.gen(cond);
+          this.emit('JUMP_IF_FALSE', ct, nxt);
+          for (const s of block) this.gen(s);
+          this.emit('JUMP', endLbl);
+          this.emit('LABEL', nxt);
+        }
+        this.emit('LABEL', endLbl);
+        break;
+      }
+      case 'While': {
+        const start = this.lbl('WHILE_START'), end = this.lbl('WHILE_END');
+        this.breakStack.push(end); this.contStack.push(start);
+        this.emit('LABEL', start);
+        const ct = this.gen(node.cond);
+        this.emit('JUMP_IF_FALSE', ct, end);
+        for (const s of node.body) this.gen(s);
+        this.emit('JUMP', start);
+        this.emit('LABEL', end);
+        this.breakStack.pop(); this.contStack.pop();
+        break;
+      }
+      case 'For': {
+        const start = this.lbl('FOR_START'), post = this.lbl('FOR_POST'), end = this.lbl('FOR_END');
+        this.breakStack.push(end); this.contStack.push(post);
+        if (node.init) this.gen(node.init);
+        this.emit('LABEL', start);
+        if (node.cond) { const ct = this.gen(node.cond); this.emit('JUMP_IF_FALSE', ct, end); }
+        for (const s of node.body) this.gen(s);
+        this.emit('LABEL', post);
+        if (node.post) this.gen(node.post);
+        this.emit('JUMP', start);
+        this.emit('LABEL', end);
+        this.breakStack.pop(); this.contStack.pop();
+        break;
+      }
+      case 'FuncCall': {
+        const ats = node.args.map(a => this.gen(a));
+        for (const at of ats) this.emit('PUSH_ARG', at);
+        this.emit('CALL', node.name, ats.length);
+        const t = this.temp(); this.emit('POP_RET', t); return t;
+      }
+      case 'BinOp': {
+        if (node.op === '&&') return this.shortCircuitAnd(node);
+        if (node.op === '||') return this.shortCircuitOr(node);
+        const l = this.gen(node.left), r = this.gen(node.right), t = this.temp();
+        const m={'+':'ADD','-':'SUB','*':'MUL','/':'DIV','%':'MOD','==':'EQ','!=':'NE','<':'LT','>':'GT','<=':'LE','>=':'GE'};
+        this.emit(m[node.op]||node.op, t, l, r); return t;
+      }
+      case 'UnaryOp': {
+        const o = this.gen(node.operand), t = this.temp();
+        this.emit(node.op==='-'?'NEG':'NOT', t, o); return t;
+      }
+      case 'Literal': { const t = this.temp(); this.emit('LOAD_CONST', t, node.value); return t; }
+      case 'Identifier': return node.name;
+    }
+  }
+  shortCircuitAnd(node) {
+    const fl=this.lbl('AND_FALSE'), end=this.lbl('AND_END'), r=this.temp();
+    const lv=this.gen(node.left); this.emit('JUMP_IF_FALSE',lv,fl);
+    const rv=this.gen(node.right); this.emit('JUMP_IF_FALSE',rv,fl);
+    this.emit('LOAD_CONST',r,true); this.emit('JUMP',end);
+    this.emit('LABEL',fl); this.emit('LOAD_CONST',r,false); this.emit('LABEL',end);
+    return r;
+  }
+  shortCircuitOr(node) {
+    const tl=this.lbl('OR_TRUE'), end=this.lbl('OR_END'), r=this.temp();
+    const lv=this.gen(node.left); const nl=this.temp(); this.emit('NOT',nl,lv); this.emit('JUMP_IF_FALSE',nl,tl);
+    const rv=this.gen(node.right); const nr=this.temp(); this.emit('NOT',nr,rv); this.emit('JUMP_IF_FALSE',nr,tl);
+    this.emit('LOAD_CONST',r,false); this.emit('JUMP',end);
+    this.emit('LABEL',tl); this.emit('LOAD_CONST',r,true); this.emit('LABEL',end);
+    return r;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// OPTIMIZER
+// ──────────────────────────────────────────────────────────────────────────
+function optimize(instrs) {
+  let code = instrs.map(i => ({...i, args:[...i.args]}));
+
+  // Pass 1: Constant Folding
+  const constants = {};
+  const fold = [];
+  for (const ins of code) {
+    const {op, args} = ins;
+    if (op === 'LOAD_CONST') { constants[args[0]] = args[1]; fold.push(ins); continue; }
+    if (['ADD','SUB','MUL','DIV','MOD'].includes(op)) {
+      const [d,l,r] = args;
+      const lv = constants[l], rv = constants[r];
+      if (lv !== undefined && rv !== undefined && typeof lv === 'number' && typeof rv === 'number') {
+        const fns = {ADD:(a,b)=>a+b,SUB:(a,b)=>a-b,MUL:(a,b)=>a*b,DIV:(a,b)=>b?a/b:null,MOD:(a,b)=>b?a%b:null};
+        const v = fns[op](lv, rv);
+        if (v !== null) { constants[d]=v; fold.push({op:'LOAD_CONST',args:[d,v]}); continue; }
+      }
+      delete constants[d]; fold.push(ins); continue;
+    }
+    if (['EQ','NE','LT','GT','LE','GE'].includes(op)) {
+      const [d,l,r] = args;
+      const lv = constants[l], rv = constants[r];
+      if (lv !== undefined && rv !== undefined) {
+        const fns = {EQ:(a,b)=>a===b,NE:(a,b)=>a!==b,LT:(a,b)=>a<b,GT:(a,b)=>a>b,LE:(a,b)=>a<=b,GE:(a,b)=>a>=b};
+        const v = fns[op](lv,rv);
+        constants[d]=v; fold.push({op:'LOAD_CONST',args:[d,v]}); continue;
+      }
+      delete constants[d]; fold.push(ins); continue;
+    }
+    if (['LABEL','JUMP','JUMP_IF_FALSE','CALL'].includes(op)) { Object.keys(constants).forEach(k=>delete constants[k]); }
+    if (op==='STORE') { const [n,s] = args; const v=constants[s]; if(v!==undefined) constants[n]=v; else delete constants[n]; }
+    fold.push(ins);
+  }
+  code = fold;
+
+  // Pass 2: Unreachable code removal
+  const reach = [];
+  let dead = false;
+  for (const ins of code) {
+    if (ins.op === 'LABEL') { dead = false; reach.push(ins); }
+    else if (dead) continue;
+    else { reach.push(ins); if (['JUMP','RET'].includes(ins.op)) dead = true; }
+  }
+  return reach;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// VM (simplified for browser)
+// ──────────────────────────────────────────────────────────────────────────
+function runVM(instrs) {
+  const labels = {};
+  instrs.forEach((ins,i) => { if (ins.op==='LABEL') labels[ins.args[0]]=i; });
+
+  const globals = {};
+  const temps = {};
+  const callStack = [];
+  const argStack = [];
+  let retTemp = null;
+  const output = [];
+
+  function setVar(name, val) {
+    if (callStack.length) callStack[callStack.length-1].vars[name] = val;
+    else globals[name] = val;
+  }
+  function read(x) {
+    if (x === null || x === undefined) return null;
+    if (typeof x !== 'string') return x;
+    if (x in temps) return temps[x];
+    if (callStack.length) {
+      const f = callStack[callStack.length-1];
+      if (x in f.vars) return f.vars[x];
+    }
+    if (x in globals) return globals[x];
+    const n = parseFloat(x);
+    if (!isNaN(n)) return n;
+    if (x==='true') return true; if (x==='false') return false;
+    return x;
+  }
+
+  const MAX_STEPS = 100000;
+  let pc = 0, steps = 0;
+
+  while (pc < instrs.length && steps < MAX_STEPS) {
+    steps++;
+    const {op, args} = instrs[pc];
+
+    if (op==='LABEL') { pc++; continue; }
+    if (op==='ALLOC') { setVar(args[0], null); pc++; continue; }
+    if (op==='STORE') { setVar(args[0], read(args[1])); pc++; continue; }
+    if (op==='LOAD_CONST') { temps[args[0]] = args[1]; pc++; continue; }
+
+    if (['ADD','SUB','MUL','DIV','MOD'].includes(op)) {
+      const lv=read(args[1]), rv=read(args[2]);
+      const fns={ADD:(a,b)=>a+b,SUB:(a,b)=>a-b,MUL:(a,b)=>a*b,DIV:(a,b)=>rv===0?NaN:a/b,MOD:(a,b)=>rv===0?NaN:a%b};
+      temps[args[0]] = fns[op](lv,rv); pc++; continue;
+    }
+    if (['EQ','NE','LT','GT','LE','GE'].includes(op)) {
+      const lv=read(args[1]),rv=read(args[2]);
+      const fns={EQ:(a,b)=>a===b,NE:(a,b)=>a!==b,LT:(a,b)=>a<b,GT:(a,b)=>a>b,LE:(a,b)=>a<=b,GE:(a,b)=>a>=b};
+      temps[args[0]] = fns[op](lv,rv); pc++; continue;
+    }
+    if (op==='AND') { temps[args[0]] = Boolean(read(args[1])) && Boolean(read(args[2])); pc++; continue; }
+    if (op==='OR')  { temps[args[0]] = Boolean(read(args[1])) || Boolean(read(args[2])); pc++; continue; }
+    if (op==='NOT') { temps[args[0]] = !read(args[1]); pc++; continue; }
+    if (op==='NEG') { temps[args[0]] = -read(args[1]); pc++; continue; }
+    if (op==='PRINT') {
+      let v = read(args[0]);
+      if (v === true) v = 'true';
+      else if (v === false) v = 'false';
+      output.push(String(v));
+      pc++; continue;
+    }
+    if (op==='INPUT') { setVar(args[0], 0); pc++; continue; } // stub
+    if (op==='JUMP') { if (labels[args[0]] !== undefined) pc = labels[args[0]]; else pc++; continue; }
+    if (op==='JUMP_IF_FALSE') {
+      if (!read(args[0])) { if (labels[args[1]] !== undefined) pc = labels[args[1]]; else pc++; }
+      else pc++;
+      continue;
+    }
+    if (op==='PUSH_ARG') { argStack.push(read(args[0])); pc++; continue; }
+    if (op==='CALL') {
+      const n = parseInt(args[1]);
+      const vals = argStack.splice(argStack.length-n, n);
+      const frame = { funcName: args[0], retAddr: pc+1, vars: {} };
+      vals.forEach((v,i) => { frame.vars[`arg${i}`] = v; });
+      callStack.push(frame);
+      if (labels[`func_${args[0]}`] !== undefined) pc = labels[`func_${args[0]}`];
+      else pc++;
+      continue;
+    }
+    if (op==='POP_RET') { temps[args[0]] = retTemp; retTemp = null; pc++; continue; }
+    if (op==='RETVAL') { retTemp = read(args[0]); pc++; continue; }
+    if (op==='RET') {
+      if (callStack.length) { const f = callStack.pop(); pc = f.retAddr; }
+      else pc++;
+      continue;
+    }
+    pc++;
+  }
+  return { output, globals, steps };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// RENDER FUNCTIONS
+// ──────────────────────────────────────────────────────────────────────────
+
+function tokenClass(t) {
+  if (['INT','FLOAT','STRING','TRUE','FALSE'].includes(t.type)) return 'tok-lit';
+  if (t.type === 'ID') return 'tok-id';
+  if (t.type === 'OP') return 'tok-op';
+  if (['SEMI','LPAREN','RPAREN','LBRACE','RBRACE','LBRACKET','RBRACKET','COMMA'].includes(t.type)) return 'tok-punc';
+  if (t.type === 'EOF') return 'tok-punc';
+  return 'tok-kw';
+}
+
+function renderTokens(tokens) {
+  const pane = document.getElementById('pane-tokens');
+  const grid = document.createElement('div');
+  grid.className = 'token-grid';
+  tokens.filter(t => t.type !== 'EOF').forEach(t => {
+    const chip = document.createElement('div');
+    chip.className = `token-chip ${tokenClass(t)}`;
+    chip.title = `Line ${t.line}, Col ${t.col}`;
+    chip.innerHTML = `<span class="tok-type">${t.type}</span><span class="tok-val">${escHtml(String(t.value))}</span>`;
+    grid.appendChild(chip);
+  });
+  pane.innerHTML = '';
+  const stats = document.createElement('div');
+  stats.className = 'stats-bar';
+  stats.innerHTML = `
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${tokens.filter(t=>t.type!=='EOF').length}</div><div class="stat-lbl">Total Tokens</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent2)">${tokens.filter(t=>t.type==='ID').length}</div><div class="stat-lbl">Identifiers</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent3)">${tokens.filter(t=>['INT','FLOAT','STRING','TRUE','FALSE'].includes(t.type)).length}</div><div class="stat-lbl">Literals</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent4)">${tokens.filter(t=>!['ID','INT','FLOAT','STRING','TRUE','FALSE','OP','SEMI','LPAREN','RPAREN','LBRACE','RBRACE','LBRACKET','RBRACKET','COMMA','EOF'].includes(t.type)).length}</div><div class="stat-lbl">Keywords</div></div>
+  `;
+  pane.appendChild(stats);
+  pane.appendChild(grid);
+}
+
+const KIND_COLOR = {
+  Program:'n-program', FuncDef:'n-funcdef', VarDecl:'n-vardecl',
+  Assignment:'n-assign', If:'n-if', For:'n-for', While:'n-while',
+  Return:'n-return', Print:'n-print', BinOp:'n-binop', UnaryOp:'n-unary',
+  Literal:'n-literal', Identifier:'n-ident', FuncCall:'n-call',
+  IncDec:'n-incdec', Break:'n-break', Continue:'n-continue',
+};
+
+function renderASTNode(node, depth=0) {
+  if (!node || typeof node !== 'object') return '';
+  const kind = node.kind || 'Node';
+  const cls = KIND_COLOR[kind] || 'n-other';
+
+  let meta = '';
+  if (kind==='FuncDef')   meta = `<span class="ast-node-meta">${node.name}(${node.params.map(([t,n])=>t+' '+n).join(', ')}) → ${node.retType||'?'}</span>`;
+  if (kind==='VarDecl')   meta = `<span class="ast-node-meta">${node.type} ${node.name}</span>`;
+  if (kind==='Identifier') meta = `<span class="ast-node-meta">${node.name}</span>`;
+  if (kind==='Literal')   meta = `<span class="ast-node-meta">${JSON.stringify(node.value)} : ${node.dtype}</span>`;
+  if (kind==='BinOp')     meta = `<span class="ast-node-meta">"${node.op}"</span>`;
+  if (kind==='UnaryOp')   meta = `<span class="ast-node-meta">"${node.op}"</span>`;
+  if (kind==='Assignment')meta = `<span class="ast-node-meta">${node.name} ${node.op}</span>`;
+  if (kind==='FuncCall')  meta = `<span class="ast-node-meta">${node.name}()</span>`;
+  if (kind==='IncDec')    meta = `<span class="ast-node-meta">${node.name}${node.op}</span>`;
+  if (kind==='Return')    meta = node.expr ? '' : `<span class="ast-node-meta">void</span>`;
+
+  // children
+  const childNodes = [];
+  if (kind==='Program')    childNodes.push(...node.statements.map(s=>({label:'stmt',node:s})));
+  if (kind==='FuncDef')    childNodes.push(...node.body.map(s=>({label:'body',node:s})));
+  if (kind==='VarDecl' && node.expr) childNodes.push({label:'init',node:node.expr});
+  if (kind==='Assignment') childNodes.push({label:'rhs',node:node.expr});
+  if (kind==='Print')      childNodes.push({label:'expr',node:node.expr});
+  if (kind==='Return' && node.expr) childNodes.push({label:'expr',node:node.expr});
+  if (kind==='BinOp')      childNodes.push({label:'left',node:node.left},{label:'right',node:node.right});
+  if (kind==='UnaryOp')    childNodes.push({label:'operand',node:node.operand});
+  if (kind==='FuncCall')   childNodes.push(...node.args.map((a,i)=>({label:`arg${i}`,node:a})));
+  if (kind==='If')         for (const br of node.branches) {
+    if (br.cond) childNodes.push({label:'cond',node:br.cond});
+    childNodes.push(...br.block.map(s=>({label:'then',node:s})));
+  }
+  if (kind==='While')      { childNodes.push({label:'cond',node:node.cond}); childNodes.push(...node.body.map(s=>({label:'body',node:s}))); }
+  if (kind==='For')        {
+    if (node.init) childNodes.push({label:'init',node:node.init});
+    if (node.cond) childNodes.push({label:'cond',node:node.cond});
+    if (node.post) childNodes.push({label:'post',node:node.post});
+    childNodes.push(...node.body.map(s=>({label:'body',node:s})));
+  }
+  if (kind==='IncDec')     {} // leaf
+
+  const isLeaf = childNodes.length === 0;
+  const nodeId = `ast-${Math.random().toString(36).slice(2)}`;
+
+  let html = `<div class="ast-node" onclick="toggleASTNode(event,'${nodeId}')">
+    ${!isLeaf ? `<span class="ast-toggle" id="tog-${nodeId}">▼</span>` : '<span class="ast-toggle"></span>'}
+    <span class="ast-node-label ${cls}">${kind}</span>
+    ${meta}
+  </div>`;
+
+  if (!isLeaf) {
+    html += `<div class="ast-children" id="${nodeId}">`;
+    for (const {label, node: child} of childNodes) {
+      html += `<div style="margin:2px 0"><span style="font-size:10px;color:var(--muted);font-family:var(--mono);">${label}:</span>${renderASTNode(child, depth+1)}</div>`;
+    }
+    html += `</div>`;
+  }
+  return html;
+}
+
+function toggleASTNode(e, id) {
+  e.stopPropagation();
+  const el = document.getElementById(id);
+  const tog = document.getElementById('tog-'+id);
+  if (!el) return;
+  const hidden = el.style.display === 'none';
+  el.style.display = hidden ? '' : 'none';
+  if (tog) tog.textContent = hidden ? '▼' : '▶';
+}
+
+function renderAST(ast) {
+  const pane = document.getElementById('pane-ast');
+  pane.innerHTML = `
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent2)">${countNodes(ast)}</div><div class="stat-lbl">AST Nodes</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${ast.statements.filter(s=>s.kind==='FuncDef').length}</div><div class="stat-lbl">Functions</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent3)">${ast.statements.filter(s=>s.kind==='VarDecl').length}</div><div class="stat-lbl">Top-level Vars</div></div>
+    </div>
+    <div class="ast-tree">${renderASTNode(ast)}</div>
+  `;
+}
+
+function countNodes(node) {
+  if (!node || typeof node !== 'object') return 0;
+  let c = 1;
+  for (const v of Object.values(node)) {
+    if (Array.isArray(v)) v.forEach(i => c += countNodes(i));
+    else if (v && typeof v === 'object') c += countNodes(v);
+  }
+  return c;
+}
+
+function typeClass(t) {
+  return {int:'tb-int',float:'tb-float',string:'tb-string',bool:'tb-bool'}[t] || 'tb-int';
+}
+
+function renderSymTable(sym) {
+  const pane = document.getElementById('pane-symtable');
+  let html = `
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${Object.keys(sym.functions).length}</div><div class="stat-lbl">Functions</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent2)">${Object.keys(sym.globals).length}</div><div class="stat-lbl">Global Vars</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent3)">${Object.values(sym.functions).reduce((a,f)=>a+Object.keys(f.locals).length,0)}</div><div class="stat-lbl">Local Vars</div></div>
+    </div>
+
+    <div class="sym-section">
+      <div class="sym-section-title">Functions</div>
+      <table class="sym-table">
+        <thead><tr><th>Name</th><th>Parameters</th><th>Return Type</th></tr></thead>
+        <tbody>
+  `;
+  for (const [fname, fs] of Object.entries(sym.functions)) {
+    const params = fs.params.map(([t,n])=>`<span class="type-badge ${typeClass(t)}">${t}</span> ${n}`).join(', ');
+    html += `<tr class="func-row"><td>${fname}</td><td class="param-list">${params||'(none)'}</td><td><span class="type-badge ${typeClass(fs.retType)}">${fs.retType||'void'}</span></td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  html += `<div class="sym-section"><div class="sym-section-title">Global Variables</div><table class="sym-table"><thead><tr><th>Name</th><th>Type</th><th>Scope</th></tr></thead><tbody>`;
+  for (const [name, type] of Object.entries(sym.globals)) {
+    html += `<tr><td style="font-family:var(--mono);color:var(--accent2)">${name}</td><td><span class="type-badge ${typeClass(type)}">${type}</span></td><td class="scope-tag">global</td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  for (const [fname, fs] of Object.entries(sym.functions)) {
+    if (Object.keys(fs.locals).length === 0) continue;
+    html += `<div class="sym-section"><div class="sym-section-title">Locals in <span style="color:var(--accent)">${fname}()</span></div><table class="sym-table"><thead><tr><th>Name</th><th>Type</th><th>Scope</th></tr></thead><tbody>`;
+    for (const [n,t] of Object.entries(fs.locals)) {
+      html += `<tr><td style="font-family:var(--mono);color:var(--accent2)">${n}</td><td><span class="type-badge ${typeClass(t)}">${t}</span></td><td class="scope-tag">${fname}()</td></tr>`;
+    }
+    html += `</tbody></table></div>`;
+  }
+  pane.innerHTML = html;
+}
+
+function opClass(op) {
+  if (['JUMP','JUMP_IF_FALSE'].includes(op)) return 'op-jump';
+  if (op==='LABEL') return 'op-label';
+  if (['CALL','PUSH_ARG','POP_RET'].includes(op)) return 'op-call';
+  if (['STORE','ALLOC'].includes(op)) return 'op-store';
+  if (['ADD','SUB','MUL','DIV','MOD','NEG','NOT'].includes(op)) return 'op-arith';
+  if (['EQ','NE','LT','GT','LE','GE','AND','OR'].includes(op)) return 'op-cmp';
+  if (['PRINT','INPUT'].includes(op)) return 'op-io';
+  if (['RET','RETVAL'].includes(op)) return 'op-ret';
+  if (op==='LOAD_CONST') return 'op-const';
+  return '';
+}
+
+function renderArg(a) {
+  if (typeof a === 'string') {
+    if (a.startsWith('t') && /^t\d+$/.test(a)) return `<span class="ir-arg-temp">${a}</span>`;
+    if (/^(func_|MAIN|FOR|WHILE|ENDIF|ELIF|ELSE|AND|OR)\w*/.test(a)) return `<span class="ir-arg-label">${a}</span>`;
+    return `<span class="ir-arg-name">${a}</span>`;
+  }
+  return `<span class="ir-arg-const">${JSON.stringify(a)}</span>`;
+}
+
+function renderIR(rawInstrs, optInstrs) {
+  const pane = document.getElementById('pane-ir');
+  const removed = rawInstrs.length - optInstrs.length;
+
+  let html = `
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-val" style="color:var(--muted)">${rawInstrs.length}</div><div class="stat-lbl">Before Opt.</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent4)">${optInstrs.length}</div><div class="stat-lbl">After Opt.</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--danger)">${removed}</div><div class="stat-lbl">Removed</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent3)">${rawInstrs.length?Math.round(removed/rawInstrs.length*100):0}%</div><div class="stat-lbl">Reduction</div></div>
+    </div>
+    <div class="opt-passes">
+      <div class="opt-pass active">Pass 1: Constant Folding</div>
+      <div class="opt-pass active">Pass 2: Copy Propagation</div>
+      <div class="opt-pass active">Pass 3: Dead Code Elim.</div>
+      <div class="opt-pass active">Pass 4: Unreachable Removal</div>
+    </div>
+    <div class="ir-list">
+  `;
+  optInstrs.forEach((ins, i) => {
+    const oc = opClass(ins.op);
+    const argsHtml = ins.args.map(renderArg).join(' ');
+    html += `<div class="ir-instr ${oc}">
+      <span class="ir-ln">${i}</span>
+      <div class="ir-body">
+        <span class="ir-op">${ins.op}</span>
+        <span class="ir-args">${argsHtml}</span>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  pane.innerHTML = html;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// CFG BUILDER & RENDERER
+// ──────────────────────────────────────────────────────────────────────────
+function buildCFG(instrs) {
+  // split into basic blocks
+  const blocks = [];
+  let current = null;
+  const labelToBlock = {};
+
+  instrs.forEach((ins, i) => {
+    if (ins.op === 'LABEL') {
+      if (current && current.instrs.length > 0) blocks.push(current);
+      current = { id: ins.args[0], instrs: [ins], succs: [], preds: [] };
+      labelToBlock[ins.args[0]] = current;
+    } else {
+      if (!current) current = { id: `block_${blocks.length}`, instrs: [], succs: [], preds: [] };
+      current.instrs.push(ins);
+    }
+    if (i === instrs.length - 1 && current && current.instrs.length > 0) blocks.push(current);
+  });
+
+  // build edges
+  blocks.forEach((blk, bi) => {
+    const last = blk.instrs[blk.instrs.length - 1];
+    if (!last) return;
+    if (last.op === 'JUMP') {
+      const tgt = labelToBlock[last.args[0]];
+      if (tgt) { blk.succs.push(tgt); tgt.preds.push(blk); }
+    } else if (last.op === 'JUMP_IF_FALSE') {
+      const tgt = labelToBlock[last.args[1]];
+      if (tgt) { blk.succs.push(tgt); tgt.preds.push(blk); }
+      const fall = blocks[bi+1];
+      if (fall) { blk.succs.push(fall); fall.preds.push(blk); }
+    } else if (last.op !== 'RET') {
+      const fall = blocks[bi+1];
+      if (fall) { blk.succs.push(fall); fall.preds.push(blk); }
+    }
+  });
+
+  return blocks;
+}
+
+function renderCFG(instrs) {
+  const pane = document.getElementById('pane-cfg');
+  const blocks = buildCFG(instrs);
+  if (!blocks.length) { pane.innerHTML = '<div class="empty"><div class="empty-icon">🗺️</div><div class="empty-title">No CFG</div></div>'; return; }
+
+  // Layout: simple top-down column layout
+  const BW = 200, BH_BASE = 30, LINE_H = 16, PAD = 20;
+  const COLS = 2, COL_GAP = 80, ROW_GAP = 50;
+
+  const positions = {};
+  blocks.forEach((blk, i) => {
+    const col = i % COLS;
+    const row = Math.floor(i / COLS);
+    const h = BH_BASE + blk.instrs.length * LINE_H;
+    positions[blk.id] = {
+      x: PAD + col * (BW + COL_GAP),
+      y: PAD + row * (150 + ROW_GAP),
+      w: BW, h
+    };
+  });
+
+  const maxX = Math.max(...Object.values(positions).map(p => p.x + p.w)) + PAD;
+  const maxY = Math.max(...Object.values(positions).map(p => p.y + p.h)) + PAD;
+
+  let svg = `<svg id="cfg-svg" viewBox="0 0 ${maxX} ${maxY}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#3ecfcf" opacity="0.8"/>
+      </marker>
+      <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#f76a7c" opacity="0.8"/>
+      </marker>
+    </defs>`;
+
+  // Draw edges first (behind blocks)
+  blocks.forEach(blk => {
+    const p = positions[blk.id];
+    blk.succs.forEach((succ, si) => {
+      const q = positions[succ.id];
+      if (!p || !q) return;
+      const isConditionalFalse = si === 0 && blk.instrs[blk.instrs.length-1]?.op === 'JUMP_IF_FALSE';
+      const color = isConditionalFalse ? '#f76a7c' : '#3ecfcf';
+      const mId = isConditionalFalse ? 'arr2' : 'arr';
+      const x1 = p.x + p.w/2, y1 = p.y + p.h;
+      const x2 = q.x + q.w/2, y2 = q.y;
+      const cy = (y1 + y2) / 2;
+      svg += `<path d="M${x1},${y1} C${x1},${cy} ${x2},${cy} ${x2},${y2}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.7" marker-end="url(#${mId})"/>`;
+    });
+  });
+
+  // Draw blocks
+  blocks.forEach(blk => {
+    const p = positions[blk.id];
+    const isFunc  = blk.id.startsWith('func_');
+    const isMain  = blk.id.startsWith('MAIN');
+    const isLoop  = blk.id.startsWith('WHILE') || blk.id.startsWith('FOR');
+    const isEnd   = blk.id.startsWith('ENDIF') || blk.id.startsWith('AND') || blk.id.startsWith('OR');
+    const stroke  = isFunc ? '#7c6af7' : isMain ? '#3ecfcf' : isLoop ? '#f76a7c' : isEnd ? '#6af79c' : '#252a35';
+    const fill    = isFunc ? 'rgba(124,106,247,.08)' : isMain ? 'rgba(62,207,207,.06)' : isLoop ? 'rgba(247,106,124,.06)' : 'rgba(255,255,255,.02)';
+
+    svg += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
+    // header
+    svg += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="22" rx="8" fill="${stroke}" fill-opacity="0.2"/>`;
+    svg += `<rect x="${p.x}" y="${p.y+14}" width="${p.w}" height="8" fill="${stroke}" fill-opacity="0.2"/>`;
+    svg += `<text x="${p.x+p.w/2}" y="${p.y+14}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" font-weight="700" fill="${stroke}">${blk.id}</text>`;
+
+    blk.instrs.slice(1).forEach((ins, li) => {
+      const oc = opClass(ins.op);
+      const col = oc==='op-jump'?'#f76a7c': oc==='op-label'?'#6af79c': oc==='op-call'?'#7c6af7': oc==='op-io'?'#34d399': oc==='op-ret'?'#f7a26a': '#6b7280';
+      const txt = [ins.op, ...ins.args].join(' ').slice(0, 24);
+      svg += `<text x="${p.x+8}" y="${p.y+30+li*LINE_H}" font-family="JetBrains Mono,monospace" font-size="8" fill="${col}">${escHtml(txt)}</text>`;
+    });
+  });
+
+  svg += `</svg>`;
+  pane.innerHTML = `
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${blocks.length}</div><div class="stat-lbl">Basic Blocks</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent2)">${blocks.reduce((a,b)=>a+b.succs.length,0)}</div><div class="stat-lbl">Edges</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent4)">${blocks.filter(b=>b.id.startsWith('func_')).length}</div><div class="stat-lbl">Function Blocks</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;font-family:var(--mono);">
+      <span style="color:#3ecfcf">─── fallthrough / true branch</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#f76a7c">─── false branch (JUMP_IF_FALSE)</span>&nbsp;&nbsp;&nbsp;
+      <span style="color:#7c6af7">■ function entry</span>&nbsp;&nbsp;
+      <span style="color:#f76a7c">■ loop</span>
+    </div>
+    <div id="cfg-canvas">${svg}</div>
+  `;
+}
+
+function renderOutput(vmResult, code) {
+  const pane = document.getElementById('pane-output');
+  const lines = vmResult.output.join('\n');
+  pane.innerHTML = `
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent4)">${vmResult.output.length}</div><div class="stat-lbl">Lines Output</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent2)">${vmResult.steps.toLocaleString()}</div><div class="stat-lbl">VM Steps</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${Object.keys(vmResult.globals).length}</div><div class="stat-lbl">Global Vars</div></div>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;">
+      <div style="padding:10px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+        <span style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);">VM Output</span>
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--accent4);display:inline-block;animation:pulse 1.5s infinite"></span>
+      </div>
+      <pre style="font-family:var(--mono);font-size:13px;color:var(--accent4);padding:20px;margin:0;overflow-x:auto;">${escHtml(lines)||'(no output)'}</pre>
+    </div>
+    ${Object.keys(vmResult.globals).length ? `
+    <div class="sym-section">
+      <div class="sym-section-title">Final Global State</div>
+      <table class="sym-table">
+        <thead><tr><th>Variable</th><th>Value</th></tr></thead>
+        <tbody>
+          ${Object.entries(vmResult.globals).map(([k,v])=>`<tr><td style="font-family:var(--mono);color:var(--accent2)">${k}</td><td style="font-family:var(--mono);color:var(--accent3)">${JSON.stringify(v)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : ''}
+  `;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// THEME TOGGLE
+// ──────────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  const currentTheme = html.getAttribute('data-theme');
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+}
+
+// Load saved theme on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// MAIN COMPILE
+// ──────────────────────────────────────────────────────────────────────────
+function compile() {
+  const code = document.getElementById('code').value;
+  const btn = document.querySelector('.btn-primary');
+  btn.textContent = 'Compiling…';
+
+  setTimeout(() => {
+    try {
+      // Phase 1: Lex
+      const tokens = tokenize(code);
+      renderTokens(tokens);
+
+      // Phase 2: Parse
+      let ast;
+      try {
+        const parser = new Parser(tokens);
+        ast = parser.parse();
+        renderAST(ast);
+      } catch(e) {
+        showError('pane-ast', 'Parse Error', e.message);
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Compile';
+        switchTab('ast');
+        return;
+      }
+
+      // Phase 3: Semantic
+      try {
+        const sym = buildSymbolTable(ast);
+        renderSymTable(sym);
+      } catch(e) {
+        showError('pane-symtable', 'Semantic Error', e.message);
+      }
+
+      // Phase 4 & 5: IR + Optimize
+      const irgen = new IRGen();
+      irgen.gen(ast);
+      const rawIR = irgen.code.map(i => ({...i, args:[...i.args]}));
+      const optIR = optimize(rawIR);
+      renderIR(rawIR, optIR);
+
+      // CFG
+      renderCFG(optIR);
+
+      // Phase 6: VM
+      const vmResult = runVM(optIR);
+      renderOutput(vmResult, code);
+
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Compile';
+      switchTab('tokens');
+
+    } catch(e) {
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Compile';
+      alert('Error: ' + e.message);
+    }
+  }, 10);
+}
+
+function showError(paneId, title, msg) {
+  document.getElementById(paneId).innerHTML = `
+    <div style="background:rgba(247,106,124,.08);border:1px solid rgba(247,106,124,.3);border-radius:12px;padding:24px;margin-top:20px;">
+      <div style="color:var(--danger);font-weight:700;margin-bottom:8px;">⚠ ${title}</div>
+      <div style="font-family:var(--mono);font-size:12px;color:var(--text);">${escHtml(msg)}</div>
+    </div>
+  `;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// LOAD FILE
+// ──────────────────────────────────────────────────────────────────────────
+function loadFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const textarea = document.getElementById('code');
+    textarea.value = e.target.result;
+
+    // Update panel title to show filename
+    const panelTitle = document.querySelector('.panel-title');
+    panelTitle.textContent = file.name;
+    panelTitle.title = file.name;
+
+    // Auto-compile after load
+    compile();
+  };
+  reader.onerror = function() {
+    alert('Failed to read file: ' + file.name);
+  };
+  reader.readAsText(file);
+
+  // Reset so same file can be re-loaded if needed
+  event.target.value = '';
+}
+
+// Run compile on load
+window.addEventListener('load', () => setTimeout(compile, 100));
+</script>
+</body>
+</html>
